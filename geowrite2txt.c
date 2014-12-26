@@ -125,53 +125,79 @@ main(int argc, char **argv)
 					debug_printf("<<<Graphics Escape>>>");
 					j += 4;
 					continue;
-				case 0x11:
+				case 0x11: {
 					// Ruler Escape
 					// TODO: We could decode it and create an RTF
 					debug_printf("<<<Ruler Escape>>>");
+					unsigned char *escape = (unsigned char *)&payload[j + 1];
+					unsigned char alignment = escape[22] & 3;
+					char *s;
+					switch (alignment) {
+						case 0:
+							s = "left";
+							break;
+						case 1:
+							s = "center";
+							break;
+						case 2:
+							s = "right";
+							break;
+						case 3:
+							s = "justify";
+							break;
+					}
+					printf("<span align=\"%s\">", s);
 					j += 26;
 					continue;
+				}
 				case 0x17: {
 					// NewCardSet Escape (i.e. font/style change)
-					// TODO: We could decode it and create an RTF
 					unsigned char *escape = (unsigned char *)&payload[j + 1];
 					debug_printf("<<<NewCardSet Escape %02x/%02x/%02x>>>", escape[0], escape[1], escape[2]);
 
 #ifdef PRINT_HTML
+					int new_font = escape[0] | escape[1] << 8;
+					int new_font_id = new_font >> 5;
+					int new_font_size = new_font & 0x1F;
+					debug_printf("<<<Font Id=%d Size=%d>>>", new_font_id, new_font_size);
+					printf("<span style=\"font-size: %dpt\">", new_font_size);
+
 					char new_style = escape[2];
-					for (int b = 1; b < 8; b++) {
-						char bit = (style >> b) & 1;
-						char new_bit = (new_style >> b) & 1;
-						if (bit != new_bit) {
-							if (bit) {
-								printf("</");
-							} else {
-								printf("<");
+					for (int on = 0; on <= 1; on++) {
+						for (int b = 1; b < 8; b++) {
+							char bit = (style >> b) & 1;
+							char new_bit = (new_style >> b) & 1;
+							if (bit != new_bit && new_bit == on) {
+								if (new_bit) {
+									printf("<");
+								} else {
+									printf("</");
+								}
+								switch (b) {
+									case 7:
+										printf("u");
+										break;
+									case 6:
+										printf("b");
+										break;
+									case 5:
+										printf("reverse"); // XXX not an actual HTML tag
+										break;
+									case 4:
+										printf("i");
+										break;
+									case 3:
+										printf("outline"); // XXX not an actual HTML tag
+										break;
+									case 2:
+										printf("sup");
+										break;
+									case 1:
+										printf("sub");
+										break;
+								}
+								printf(">");
 							}
-							switch (b) {
-								case 7:
-									printf("u");
-									break;
-								case 6:
-									printf("b");
-									break;
-								case 5:
-									printf("reverse");
-									break;
-								case 4:
-									printf("i");
-									break;
-								case 3:
-									printf("outline");
-									break;
-								case 2:
-									printf("sup");
-									break;
-								case 1:
-									printf("sub");
-									break;
-							}
-							printf(">");
 						}
 					}
 					style = new_style;
