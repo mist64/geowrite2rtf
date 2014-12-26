@@ -8,6 +8,10 @@ Use a tool like [c1541](http://vice-emu.sourceforge.net/vice_12.html) or [DirMas
 
 *geowrite2txt* discards all rich text and graphics information. It could be extended to support lossless conversion to RTF files.
 
+## License
+
+Public Domain
+
 ## Author
 
 Michael Steil <mist64@mac.com>
