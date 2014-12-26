@@ -16,12 +16,15 @@
 // You probably want to turn this on. GeoWrite files and in a \0 character.
 #define SUPPRESS_NUL
 
+//#define PRINT_HTML
+
 // Turn this on to debug this tool... or broken files.
 //#define DEBUG
 
 #ifdef DEBUG
 #undef SUPPRESS_NUL
 #undef FF_TO_LF
+#undef PRINT_HTML
 #define debug_printf printf
 #else
 #define debug_printf(...)
@@ -82,6 +85,9 @@ main(int argc, char **argv)
 			gross_size = a1 * 254;
 		}
 
+#ifdef PRINT_HTML
+		char style = 0;
+#endif
 		for (int j = 0; j < chain_size; j++) {
 			unsigned char c = payload[j];
 
@@ -97,13 +103,21 @@ main(int argc, char **argv)
 				case 0x0:
 					continue;
 #endif
-#ifdef FF_TO_LF
+#ifdef PRINT_HTML
+				case 0x0c:
+					printf("<hr/>");
+					continue;
+#elif defined(FF_TO_LF)
 				case 0x0c:
 					printf("\n");
 					continue;
 #endif
 				case 0x0d:
+#ifdef PRINT_HTML
+					printf("<br/>");
+#else
 					printf("\n");
+#endif
 					continue;
 				case 0x10:
 					// Graphics Escape
@@ -117,12 +131,54 @@ main(int argc, char **argv)
 					debug_printf("<<<Ruler Escape>>>");
 					j += 26;
 					continue;
-				case 0x17:
+				case 0x17: {
 					// NewCardSet Escape (i.e. font/style change)
 					// TODO: We could decode it and create an RTF
-					debug_printf("<<<NewCardSet Escape>>>");
+					unsigned char *escape = (unsigned char *)&payload[j + 1];
+					debug_printf("<<<NewCardSet Escape %02x/%02x/%02x>>>", escape[0], escape[1], escape[2]);
+
+#ifdef PRINT_HTML
+					char new_style = escape[2];
+					for (int b = 1; b < 8; b++) {
+						char bit = (style >> b) & 1;
+						char new_bit = (new_style >> b) & 1;
+						if (bit != new_bit) {
+							if (bit) {
+								printf("</");
+							} else {
+								printf("<");
+							}
+							switch (b) {
+								case 7:
+									printf("u");
+									break;
+								case 6:
+									printf("b");
+									break;
+								case 5:
+									printf("reverse");
+									break;
+								case 4:
+									printf("i");
+									break;
+								case 3:
+									printf("outline");
+									break;
+								case 2:
+									printf("sup");
+									break;
+								case 1:
+									printf("sub");
+									break;
+							}
+							printf(">");
+						}
+					}
+					style = new_style;
+#endif
 					j += 3;
 					continue;
+				}
 				case 0x08:
 				case 0x18:
 					// Unknown Escape 0x08/0x18 (V1.1 only)
