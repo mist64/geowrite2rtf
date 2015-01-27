@@ -4,6 +4,16 @@
 
 Use a tool like [c1541](http://vice-emu.sourceforge.net/vice_12.html) or [DirMaster](http://style64.org/dirmaster) to extract the file from a D64/D71/D81/etc. disk image into a .CVT first.
 
+## Usage
+
+* First you need to extract the file from a D64/D71/D81 disk image into CVT format using either [DirMaster](http://style64.org/dirmaster) for Windows, or the [c1541](http://vice-emu.sourceforge.net/vice_12.html) command line tool that ships with VICE:
+
+    geosread dOCUMENT document.cvt
+
+* Then run *geowrite2rtf* like this to convert the CVT file to RTF:
+
+    geowrite2rtf document.cvt document.rtf
+
 ## Status
 
 *geowrite2rtf* supports:
@@ -22,6 +32,8 @@ Use a tool like [c1541](http://vice-emu.sourceforge.net/vice_12.html) or [DirMas
 * colors
 * page size
 * graphics
+
+Contributions welcome!
 
 ## License
 
