@@ -13,10 +13,8 @@
 // You will want this for assembly source files, for example.
 //#define FF_TO_LF
 
-// You probably want to turn this on. GeoWrite files and in a \0 character.
+// You probably want to turn this on. GeoWrite files end in a \0 character.
 #define SUPPRESS_NUL
-
-//#define PRINT_HTML
 
 // Turn this on to debug this tool... or broken files.
 //#define DEBUG
@@ -24,7 +22,6 @@
 #ifdef DEBUG
 #undef SUPPRESS_NUL
 #undef FF_TO_LF
-#undef PRINT_HTML
 #define debug_printf printf
 #else
 #define debug_printf(...)
@@ -33,18 +30,32 @@
 int
 main(int argc, char **argv)
 {
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <filename>\n", basename(argv[0]));
-		fprintf(stderr, "\nThis tool converts a C64/C128 GEOS GeoWrite .CVT file into a sequential\n");
-		fprintf(stderr, "text file. All rich text and graphics information will be discarded.\n");
+	if (argc < 3) {
+		fprintf(stderr, "Usage: %s <infile> <outfile>\n", basename(argv[0]));
+		fprintf(stderr, "\nThis tool converts a C64/C128 GEOS GeoWrite .CVT file into an HTML or\n");
+		fprintf(stderr, "plain-text file, depending on whether <outfile> ends in '.html' or not.\n");
+		fprintf(stderr, "All graphics information will be discarded.\n");
 		return 1;
+	}
+
+	char *infile = argv[1];
+	char *outfile = argv[2];
+
+	// find out whether we're supposed to output HTML
+	int print_html = 0;
+	size_t outfile_len = strlen(outfile);
+	const char *suffix = ".html";
+	size_t suffix_len = strlen(suffix);
+	if (outfile_len >= suffix_len && !strcmp(outfile + outfile_len - suffix_len, suffix) ){
+		print_html = 1;
 	}
 
 	// read the whole file into memory
 	char data[1024*1024]; // highly unlikely to be bigger than this
-	FILE *f = fopen(argv[1], "r");
+	FILE *f = fopen(infile, "r");
 	size_t size = fread(data, 1, sizeof(data), f);
 	fclose(f);
+	f = fopen(outfile, "w");
 
 	char *format = &data[30];
 	char broken;
@@ -85,9 +96,7 @@ main(int argc, char **argv)
 			gross_size = a1 * 254;
 		}
 
-#ifdef PRINT_HTML
 		char style = 0;
-#endif
 		for (int j = 0; j < chain_size; j++) {
 			unsigned char c = payload[j];
 
@@ -103,21 +112,24 @@ main(int argc, char **argv)
 				case 0x0:
 					continue;
 #endif
-#ifdef PRINT_HTML
 				case 0x0c:
-					printf("<hr/>");
+#ifdef FF_TO_LF
+					fprintf(f, "\n");
 					continue;
-#elif defined(FF_TO_LF)
-				case 0x0c:
-					printf("\n");
-					continue;
+#else
+					if (print_html) {
+						fprintf(f, "<hr/>");
+						continue;
+					} else {
+						break;
+					}
 #endif
 				case 0x0d:
-#ifdef PRINT_HTML
-					printf("<br/>");
-#else
-					printf("\n");
-#endif
+					if (print_html) {
+						fprintf(f, "<br/>");
+					} else {
+						fprintf(f, "\n");
+					}
 					continue;
 				case 0x10:
 					// Graphics Escape
@@ -129,24 +141,26 @@ main(int argc, char **argv)
 					// Ruler Escape
 					// TODO: We should decode more
 					debug_printf("<<<Ruler Escape>>>");
-					unsigned char *escape = (unsigned char *)&payload[j + 1];
-					unsigned char alignment = escape[22] & 3;
-					char *s;
-					switch (alignment) {
-						case 0:
-							s = "left";
-							break;
-						case 1:
-							s = "center";
-							break;
-						case 2:
-							s = "right";
-							break;
-						case 3:
-							s = "justify";
-							break;
+					if (print_html) {
+						unsigned char *escape = (unsigned char *)&payload[j + 1];
+						unsigned char alignment = escape[22] & 3;
+						char *s;
+						switch (alignment) {
+							case 0:
+								s = "left";
+								break;
+							case 1:
+								s = "center";
+								break;
+							case 2:
+								s = "right";
+								break;
+							case 3:
+								s = "justify";
+								break;
+						}
+						fprintf(f, "<span align=\"%s\">", s);
 					}
-					printf("<span align=\"%s\">", s);
 					j += 26;
 					continue;
 				}
@@ -155,53 +169,53 @@ main(int argc, char **argv)
 					unsigned char *escape = (unsigned char *)&payload[j + 1];
 					debug_printf("<<<NewCardSet Escape %02x/%02x/%02x>>>", escape[0], escape[1], escape[2]);
 
-#ifdef PRINT_HTML
-					int new_font = escape[0] | escape[1] << 8;
-					int new_font_id = new_font >> 5;
-					int new_font_size = new_font & 0x1F;
-					debug_printf("<<<Font Id=%d Size=%d>>>", new_font_id, new_font_size);
-					printf("<span style=\"font-size: %dpt\">", new_font_size);
+					if (print_html) {
+						int new_font = escape[0] | escape[1] << 8;
+						int new_font_id = new_font >> 5;
+						int new_font_size = new_font & 0x1F;
+						debug_printf("<<<Font Id=%d Size=%d>>>", new_font_id, new_font_size);
+						fprintf(f, "<span style=\"font-size: %dpt\">", new_font_size);
 
-					char new_style = escape[2];
-					for (int on = 0; on <= 1; on++) {
-						for (int b = 1; b < 8; b++) {
-							char bit = (style >> b) & 1;
-							char new_bit = (new_style >> b) & 1;
-							if (bit != new_bit && new_bit == on) {
-								if (new_bit) {
-									printf("<");
-								} else {
-									printf("</");
+						char new_style = escape[2];
+						for (int on = 0; on <= 1; on++) {
+							for (int b = 1; b < 8; b++) {
+								char bit = (style >> b) & 1;
+								char new_bit = (new_style >> b) & 1;
+								if (bit != new_bit && new_bit == on) {
+									if (new_bit) {
+										fprintf(f, "<");
+									} else {
+										fprintf(f, "</");
+									}
+									switch (b) {
+										case 7:
+											fprintf(f, "u");
+											break;
+										case 6:
+											fprintf(f, "b");
+											break;
+										case 5:
+											fprintf(f, "reverse"); // XXX not an actual HTML tag
+											break;
+										case 4:
+											fprintf(f, "i");
+											break;
+										case 3:
+											fprintf(f, "outline"); // XXX not an actual HTML tag
+											break;
+										case 2:
+											fprintf(f, "sup");
+											break;
+										case 1:
+											fprintf(f, "sub");
+											break;
+									}
+									fprintf(f, ">");
 								}
-								switch (b) {
-									case 7:
-										printf("u");
-										break;
-									case 6:
-										printf("b");
-										break;
-									case 5:
-										printf("reverse"); // XXX not an actual HTML tag
-										break;
-									case 4:
-										printf("i");
-										break;
-									case 3:
-										printf("outline"); // XXX not an actual HTML tag
-										break;
-									case 2:
-										printf("sup");
-										break;
-									case 1:
-										printf("sub");
-										break;
-								}
-								printf(">");
 							}
 						}
+						style = new_style;
 					}
-					style = new_style;
-#endif
 					j += 3;
 					continue;
 				}
@@ -217,11 +231,12 @@ main(int argc, char **argv)
 					j += 10;
 					continue;
 			}
-			printf("%c", c);
+			fprintf(f, "%c", c);
 		}
 		payload += gross_size;
 		debug_printf("<<<New Page>>>");
 	}
 
+	fclose(f);
 	return 0;
 }
