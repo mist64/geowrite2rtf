@@ -121,13 +121,13 @@ main(int argc, char **argv)
 					continue;
 				case 0x10:
 					// Graphics Escape
-					// TODO: We could decode it and create an RTF
+					// TODO: We should decode it
 					debug_printf("<<<Graphics Escape>>>");
 					j += 4;
 					continue;
 				case 0x11: {
 					// Ruler Escape
-					// TODO: We could decode it and create an RTF
+					// TODO: We should decode more
 					debug_printf("<<<Ruler Escape>>>");
 					unsigned char *escape = (unsigned char *)&payload[j + 1];
 					unsigned char alignment = escape[22] & 3;
