@@ -1,4 +1,4 @@
-// geowrite2txt by Michael Steil
+// geowrite2rtf by Michael Steil
 //
 // Based on this documentation:
 // http://unusedino.de/ec64/technical/formats/cvt.html
