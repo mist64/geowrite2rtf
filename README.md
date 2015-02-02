@@ -21,13 +21,13 @@ Use a tool like [c1541](http://vice-emu.sourceforge.net/vice_12.html) or [DirMas
 * font size
 * styles: underline, bold, reverse, italics, outline, superscript, subscript
 * alignment: left, right, center, justified
+* insets
+* tab stops
+* line spacing
 
 *geowrite2rtf* discards:
 
 * font faces
-* insets
-* tab stops
-* line spacing
 * headers, footers
 * colors
 * page size

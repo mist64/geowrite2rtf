@@ -153,9 +153,69 @@ main(int argc, char **argv)
 				case 0x11: {
 					// Ruler Escape
 					// TODO: We should decode more
-					debug_printf("<<<Ruler Escape>>>");
+					debug_printf("\n<<<Ruler Escape>>>\n");
 					unsigned char *escape = (unsigned char *)&payload[j + 1];
 					unsigned char alignment = escape[22] & 3;
+					unsigned char spacing = (escape[22] >> 2) & 3;
+					unsigned short left = escape[0] | (escape[1] << 8);
+					unsigned short right = escape[2] | (escape[3] << 8);
+					unsigned short tab[8];
+					for (int i = 0; i < 8; i++) {
+						tab[i] = escape[4 + 2 * i] | (escape[5 + 2 * i] << 8);
+					}
+					unsigned short paragraph = escape[20] | (escape[21] << 8);
+					unsigned char color = escape[23];
+					debug_printf("<<<L/P/R Margin %d/%d/%d>>>\n", left, paragraph, right);
+					debug_printf("<<<Tabs:");
+					for (int i = 0; i < 8; i++) {
+						debug_printf(" %d", tab[i]);
+					}
+					debug_printf(">>>\n");
+					debug_printf("<<<Color %d>>>\n", color);
+					debug_printf("<<<Spacing %d>>>\n", spacing);
+					debug_printf("\n");
+
+					// tab stops
+					if (print_rtf) {
+						fprintf(f, "\\pard");
+						for (int i = 0; i < 8; i++) {
+							if (tab[i] & 0x8000) {
+								fprintf(f, "\\tqdec"); // next tab stop is decimal
+							}
+							fprintf(f, "\\tx%d", (tab[i] & 0x7FFF) * 20);
+						}
+						fprintf(f, " ");
+					} else if (print_html) {
+						fprintf(stderr, "Warning: Dropping tab stops!\n");
+					}
+
+					// indent
+					if (print_rtf) {
+						fprintf(f, "\\li%d\\fi%d\\ri%d ", left * 20, (paragraph - left) * 20, right * 20);
+					} else if (print_html) {
+						fprintf(stderr, "Warning: Dropping line indent!\n");
+					}
+
+					// spacing
+					if (print_rtf) {
+						switch (spacing) {
+							case 0:
+								fprintf(f, "\\sl240 ");
+								break;
+							case 1:
+								fprintf(f, "\\sl360 ");
+								break;
+							case 2:
+								fprintf(f, "\\sl480 ");
+								break;
+						}
+					} else if (print_html) {
+						if (spacing) {
+							fprintf(stderr, "Warning: Dropping line spacing!\n");
+						}
+					}
+
+					// alignment
 					char *s;
 					switch (alignment) {
 						case 0:
@@ -175,6 +235,11 @@ main(int argc, char **argv)
 						fprintf(f, "<span align=\"%s\">", s);
 					} else if (print_rtf) {
 						fprintf(f, "\\q%c ", s[0]);
+					}
+
+					// text color
+					if ((print_html || print_rtf) && color) {
+						fprintf(stderr, "Warning: Dropping text color!\n");
 					}
 					j += 26;
 					continue;
