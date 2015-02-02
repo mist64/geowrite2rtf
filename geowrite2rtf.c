@@ -152,7 +152,11 @@ main(int argc, char **argv)
 					unsigned short width = escape[0] * 8;
 					unsigned short height = escape[1] | (escape[2] << 8);
 					unsigned char record_no = escape[3];
-
+#if 0 // we don't create the attachment file yet
+					if (print_rtf) {
+						fprintf(f, "{{\\NeXTGraphic attachment \\width%d \\height%d} ¬}", width * 20, height * 20);
+					}
+#endif
 					fprintf(stderr, "%s: Warning: Dropping inline image (%d x %d)!\n", infile, width, height);
 					j += 4;
 					continue;
