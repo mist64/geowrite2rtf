@@ -148,6 +148,12 @@ main(int argc, char **argv)
 					// Graphics Escape
 					// TODO: We should decode it
 					debug_printf("<<<Graphics Escape>>>");
+					unsigned char *escape = (unsigned char *)&payload[j + 1];
+					unsigned short width = escape[0] * 8;
+					unsigned short height = escape[1] | (escape[2] << 8);
+					unsigned char record_no = escape[3];
+
+					fprintf(stderr, "%s: Warning: Dropping inline image (%d x %d)!\n", infile, width, height);
 					j += 4;
 					continue;
 				case 0x11: {
@@ -186,14 +192,14 @@ main(int argc, char **argv)
 						}
 						fprintf(f, " ");
 					} else if (print_html) {
-						fprintf(stderr, "Warning: Dropping tab stops!\n");
+						fprintf(stderr, "%s: Warning: Dropping tab stops!\n", infile);
 					}
 
 					// indent
 					if (print_rtf) {
 						fprintf(f, "\\li%d\\fi%d\\ri%d ", left * 20, (paragraph - left) * 20, right * 20);
 					} else if (print_html) {
-						fprintf(stderr, "Warning: Dropping line indent!\n");
+						fprintf(stderr, "%s: Warning: Dropping line indent!\n", infile);
 					}
 
 					// spacing
@@ -211,7 +217,7 @@ main(int argc, char **argv)
 						}
 					} else if (print_html) {
 						if (spacing) {
-							fprintf(stderr, "Warning: Dropping line spacing!\n");
+							fprintf(stderr, "%s: Warning: Dropping line spacing!\n", infile);
 						}
 					}
 
@@ -239,7 +245,7 @@ main(int argc, char **argv)
 
 					// text color
 					if ((print_html || print_rtf) && color) {
-						fprintf(stderr, "Warning: Dropping text color!\n");
+						fprintf(stderr, "%s: Warning: Dropping text color %d!\n", infile, color);
 					}
 					j += 26;
 					continue;
